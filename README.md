@@ -295,18 +295,20 @@ Contains anatomical anchors and candidate search masks, such as:
 Results/Intermediate/
 
 Typical outputs include:
-
+```text
 <case_id>_GDA.nii.gz
 <case_id>_hepatic_vessels.nii.gz
 <case_id>_renal_artery_vein_paths.nii.gz
 <case_id>_splenic_artery_path.nii.gz
-4. Vessel trunk segmentation
+```
+# 4. Vessel trunk segmentation
+```text
 Results/VesselsTrunk.seg.nrrd
-
+```
 This file contains named arterial trunk segments.
 
 Naming rule:
-
+```text
 If 3 components:
 highest Z-axis component  = Celiac_trunk
 middle Z-axis component   = SMA_trunk
@@ -315,13 +317,16 @@ lowest Z-axis component   = IMA_trunk
 If 2 components:
 highest Z-axis component  = Celiac+SMA_trunk
 lowest Z-axis component   = IMA_trunk
-5. Final abdominal vessel segmentation
-Results/AbdominalVessels.seg.nrrd
+```
 
+# 5. Final abdominal vessel segmentation
+```text
+Results/AbdominalVessels.seg.nrrd
+```
 This file combines major vessel branches into a 3D Slicer-compatible segmentation.
 
 Segment naming rules:
-
+```text
 GDA.nii.gz:
 GDA_1, GDA_2, GDA_3, ...
 
@@ -339,16 +344,17 @@ Splenic_artery
 
 portal venous segmentation:
 Portal_Vein_System
+```
 
 Because each vessel is stored as an independent segment layer, overlapping segments are allowed.
 
-🧠 Method Highlights
-1. TotalSegmentator-based anatomical segmentation
+## 🧠 Method Highlights
+# 1. TotalSegmentator-based anatomical segmentation
 
 The pipeline uses TotalSegmentator-derived anatomical labels as spatial priors.
 
 Key structures may include:
-
+```text
 aorta
 inferior vena cava
 liver
@@ -358,91 +364,98 @@ vertebrae
 trunk cavities
 tissue classes
 abdominal organs
+```
 
 These structures are used for ROI generation, anchor extraction, anatomical plane construction, and pathfinding constraints.
 
-2. ROI CT generation
+# 2. ROI CT generation
 
 The pipeline creates an ROI CT by combining anatomical masks and excluding irrelevant or invalid regions.
 
 The ROI CT is used as the main search space for pathfinding.
 
 Invalid regions are typically encoded as:
-
+```text
 HU = -1024
+```
 
 Pathfinding scripts avoid these regions.
 
-3. Anatomical plane generation
+# 3. Anatomical plane generation
 
 Several scripts generate anatomical Z-plane constraints based on TotalSegmentator labels.
 
 Examples:
-
+```text
 seg32_highest_seg31_lowest_Zplanes
 seg29_highest_seg28_lowest_Zplanes
-
+```
 These planes restrict where certain start-search algorithms are allowed to operate.
 
-4. Vessel start-point detection
+# 4. Vessel start-point detection
 
 The pipeline searches for plausible vessel origins near major vascular structures.
 
 Examples:
-
+```text
 renal artery / vein candidate boxes
 search3231_volume
 search2928_volume
 anchor_points_from_search_volumes.txt
+```
 
 Start points are selected using connected component centroids and validated against ROI CT intensity values.
 
-5. Hilum and organ anchor extraction
+# 5. Hilum and organ anchor extraction
 
 The pipeline automatically extracts anatomical target points such as:
 
+```text
 renal hilum centroid spheres
 spleen hilum point
 hepatic hilum spheres
 duodenal internal surface anchors
+```
 
 These anchor points serve as vessel endpoints or intermediate constraints.
 
-6. HU-guided pathfinding
+# 6. HU-guided pathfinding
 
 Vessel branches are reconstructed using pathfinding over CT intensity space.
 
 The pathfinding cost function generally:
 
+```text
 penalizes low-HU regions
 avoids HU == -1024
 prefers enhancing vascular voxels
 avoids previously traced vessel masks when needed
+```
 
 This allows the pipeline to trace plausible vessel routes between anatomical start and endpoint anchors.
 
-7. Direction-constrained splenic artery tracing
+# 7. Direction-constrained splenic artery tracing
 
 For splenic artery pathfinding, an initial forward-only constraint can be used.
 
 Example:
-
+```text
 first 10 steps must move toward decreasing Y-axis value
-
+```
 This helps prevent the path from immediately traveling backward into incorrect high-HU regions.
 
-8. Overlap-preserving Slicer export
+# 8. Overlap-preserving Slicer export
 
 Final .seg.nrrd outputs are written using independent segment layers:
-
+```text
 (num_segments, X, Y, Z)
-
+```
 This preserves overlapping vessels and avoids accidental overwriting that can occur in single-label 3D labelmaps.
 
-🖥️ GUI Features
+## 🖥️ GUI Features
 
 The included Tkinter GUI supports:
-
+```text
 manual CT NIfTI selection
 automatic case ID extraction
 one-click pipeline execution
@@ -451,41 +464,43 @@ progress-bar cleanup for subprocess logs
 automatic output directory refresh
 step skipping if output files already exist
 total runtime measurement
-
+```
 This makes the pipeline easier to run repeatedly during development and debugging.
 
-⚙️ Processing Time
+## ⚙️ Processing Time
 
 Processing time depends on:
-
+```text
 CT volume size
 TotalSegmentator runtime
 GPU availability
 number of vessel pathfinding steps
 whether intermediate outputs already exist
+```
+The pipeline prioritizes anatomical interpretability and reproducibility over raw speed. (It takes about 30 minutes for a case)
 
-The pipeline prioritizes anatomical interpretability and reproducibility over raw speed.
-
-🔧 Adding New Pipeline Steps
+## 🔧 Adding New Pipeline Steps
 
 Each pipeline step follows the same structure in run.py:
 
+```text
 def step_new_module(ctx: PipelineContext) -> None:
     run_external_script(
         ctx,
         script_relative_path="Folder/NewModule.py",
     )
-
+```
 Optional skip check:
-
+```text
 def should_skip_new_module(ctx: PipelineContext) -> bool:
     output_path = Path(
         rf"C:\Users\User\Desktop\AbdVesselGen\Results\Intermediate\{ctx.case_id}_new_output.nii.gz"
     )
     return output_path.exists()
-
+```
 Then insert into:
 
+```text
 PIPELINE_STEPS = [
     ...
     PipelineStep(
@@ -496,17 +511,17 @@ PIPELINE_STEPS = [
         skip_check=should_skip_new_module,
     ),
 ]
-
+```
 This modular structure allows new vessel branches, new anatomical anchors, and new post-processing steps to be added incrementally.
 
-⚠️ Notes
+## ⚠️ Notes
 This project is under active development.
 The current implementation is rule-based and anatomy-guided.
 It depends on the quality of upstream segmentation outputs.
 Poor contrast timing, motion artifact, unusual anatomy, or segmentation failure may affect vessel tracing.
 Manual inspection in 3D Slicer is recommended.
 Some scripts currently assume a Windows-style project path and may require path modification for other platforms.
-⚠️ Disclaimer
+## ⚠️ Disclaimer
 
 This project is intended for research and educational purposes only.
 
@@ -514,15 +529,16 @@ It is not a certified medical device and should not be used as the sole basis fo
 
 All outputs should be reviewed by qualified medical professionals before any research or clinical interpretation.
 
-📄 License
+## 📄 License
 
 MIT License
 
-🙌 Acknowledgements
+## 🙌 Acknowledgements
 
 This project builds on or interacts with several open-source tools and medical imaging platforms:
 
 TotalSegmentator
+
 3D Slicer
 MONAI
 Nibabel
@@ -533,10 +549,10 @@ Nilearn
 
 Special thanks to the open-source medical imaging community for providing the tools that make anatomy-guided image processing workflows possible.
 
-💡 Future Work
+##💡 Future Work
 
 Planned or possible future improvements include:
-
+```text
 batch processing support
 cross-platform path handling
 better anatomical variant handling
@@ -548,7 +564,7 @@ improved venous / arterial separation
 quantitative vascular measurements
 integration with radiology AI workflows
 Citation
-
+```
 If you use this project in academic work, please cite this repository.
 
 A formal citation will be added once a manuscript or preprint is available.
