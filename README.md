@@ -225,3 +225,330 @@ When loaded through run.py, the case ID is inferred from the CT filename:
 ```
 
 All downstream outputs are automatically named using this case_id.
+
+## 🚀 Usage
+# 1. Install dependencies
+
+Recommended environment:
+```text
+conda create -n abdvesselgen python=3.10
+conda activate abdvesselgen
+```
+
+Install core dependencies:
+
+```text
+pip install numpy scipy nibabel pynrrd nilearn tqdm
+```
+
+Install medical segmentation dependencies as needed:
+
+```text
+pip install torch monai simpleitk
+pip install TotalSegmentator
+```
+
+If using the colon vessel segmentation module, place the pretrained model under:
+```text
+Segmentator/ColonVesselSeg/weights/veins_segmentation_model.pth
+```
+# 2. Run the GUI pipeline
+
+```text
+python run.py
+```
+
+Then:
+
+1. Select the abdominal CT NIfTI file
+2. Confirm the selected case
+3. Click Run Pipeline
+4. Monitor real-time logs in the GUI
+5. Review outputs in Results/
+
+The GUI supports automatic step skipping if required outputs already exist.
+
+## 📤 Output
+# 1. ROI CT
+```text
+ROI_CT/<case_id>_ROI_CT.nii.gz
+```
+This file contains the cropped / masked CT region used for downstream vessel pathfinding.
+
+# 2. Anchor points
+```text
+AnchorPoints/
+```
+
+Contains anatomical anchors and candidate search masks, such as:
+
+```text
+<case_id>_search3231_volume.nii.gz
+<case_id>_search2928_volume.nii.gz
+<case_id>_anchor_points_from_search_volumes.txt
+<case_id>_renal_hilum_seg2_seg3_centroid_spheres_diameter6.nii.gz
+<case_id>_SpleenHilum.nii
+<case_id>_hepatic_hilum_spheres.nii
+```
+
+# 3. Intermediate vessel masks
+Results/Intermediate/
+
+Typical outputs include:
+
+<case_id>_GDA.nii.gz
+<case_id>_hepatic_vessels.nii.gz
+<case_id>_renal_artery_vein_paths.nii.gz
+<case_id>_splenic_artery_path.nii.gz
+4. Vessel trunk segmentation
+Results/VesselsTrunk.seg.nrrd
+
+This file contains named arterial trunk segments.
+
+Naming rule:
+
+If 3 components:
+highest Z-axis component  = Celiac_trunk
+middle Z-axis component   = SMA_trunk
+lowest Z-axis component   = IMA_trunk
+
+If 2 components:
+highest Z-axis component  = Celiac+SMA_trunk
+lowest Z-axis component   = IMA_trunk
+5. Final abdominal vessel segmentation
+Results/AbdominalVessels.seg.nrrd
+
+This file combines major vessel branches into a 3D Slicer-compatible segmentation.
+
+Segment naming rules:
+
+GDA.nii.gz:
+GDA_1, GDA_2, GDA_3, ...
+
+hepatic_vessels.nii.gz:
+Hepatic_artery_1, Hepatic_artery_2, ...
+
+renal_artery_vein_paths.nii.gz:
+Segment_1 → Lt_Renal_vein
+Segment_2 → Rt_Renal_vein
+Segment_3 → Lt_Renal_artery
+Segment_4 → Rt_Renal_artery
+
+splenic_artery_path.nii.gz:
+Splenic_artery
+
+portal venous segmentation:
+Portal_Vein_System
+
+Because each vessel is stored as an independent segment layer, overlapping segments are allowed.
+
+🧠 Method Highlights
+1. TotalSegmentator-based anatomical segmentation
+
+The pipeline uses TotalSegmentator-derived anatomical labels as spatial priors.
+
+Key structures may include:
+
+aorta
+inferior vena cava
+liver
+spleen
+kidneys
+vertebrae
+trunk cavities
+tissue classes
+abdominal organs
+
+These structures are used for ROI generation, anchor extraction, anatomical plane construction, and pathfinding constraints.
+
+2. ROI CT generation
+
+The pipeline creates an ROI CT by combining anatomical masks and excluding irrelevant or invalid regions.
+
+The ROI CT is used as the main search space for pathfinding.
+
+Invalid regions are typically encoded as:
+
+HU = -1024
+
+Pathfinding scripts avoid these regions.
+
+3. Anatomical plane generation
+
+Several scripts generate anatomical Z-plane constraints based on TotalSegmentator labels.
+
+Examples:
+
+seg32_highest_seg31_lowest_Zplanes
+seg29_highest_seg28_lowest_Zplanes
+
+These planes restrict where certain start-search algorithms are allowed to operate.
+
+4. Vessel start-point detection
+
+The pipeline searches for plausible vessel origins near major vascular structures.
+
+Examples:
+
+renal artery / vein candidate boxes
+search3231_volume
+search2928_volume
+anchor_points_from_search_volumes.txt
+
+Start points are selected using connected component centroids and validated against ROI CT intensity values.
+
+5. Hilum and organ anchor extraction
+
+The pipeline automatically extracts anatomical target points such as:
+
+renal hilum centroid spheres
+spleen hilum point
+hepatic hilum spheres
+duodenal internal surface anchors
+
+These anchor points serve as vessel endpoints or intermediate constraints.
+
+6. HU-guided pathfinding
+
+Vessel branches are reconstructed using pathfinding over CT intensity space.
+
+The pathfinding cost function generally:
+
+penalizes low-HU regions
+avoids HU == -1024
+prefers enhancing vascular voxels
+avoids previously traced vessel masks when needed
+
+This allows the pipeline to trace plausible vessel routes between anatomical start and endpoint anchors.
+
+7. Direction-constrained splenic artery tracing
+
+For splenic artery pathfinding, an initial forward-only constraint can be used.
+
+Example:
+
+first 10 steps must move toward decreasing Y-axis value
+
+This helps prevent the path from immediately traveling backward into incorrect high-HU regions.
+
+8. Overlap-preserving Slicer export
+
+Final .seg.nrrd outputs are written using independent segment layers:
+
+(num_segments, X, Y, Z)
+
+This preserves overlapping vessels and avoids accidental overwriting that can occur in single-label 3D labelmaps.
+
+🖥️ GUI Features
+
+The included Tkinter GUI supports:
+
+manual CT NIfTI selection
+automatic case ID extraction
+one-click pipeline execution
+real-time log display
+progress-bar cleanup for subprocess logs
+automatic output directory refresh
+step skipping if output files already exist
+total runtime measurement
+
+This makes the pipeline easier to run repeatedly during development and debugging.
+
+⚙️ Processing Time
+
+Processing time depends on:
+
+CT volume size
+TotalSegmentator runtime
+GPU availability
+number of vessel pathfinding steps
+whether intermediate outputs already exist
+
+The pipeline prioritizes anatomical interpretability and reproducibility over raw speed.
+
+🔧 Adding New Pipeline Steps
+
+Each pipeline step follows the same structure in run.py:
+
+def step_new_module(ctx: PipelineContext) -> None:
+    run_external_script(
+        ctx,
+        script_relative_path="Folder/NewModule.py",
+    )
+
+Optional skip check:
+
+def should_skip_new_module(ctx: PipelineContext) -> bool:
+    output_path = Path(
+        rf"C:\Users\User\Desktop\AbdVesselGen\Results\Intermediate\{ctx.case_id}_new_output.nii.gz"
+    )
+    return output_path.exists()
+
+Then insert into:
+
+PIPELINE_STEPS = [
+    ...
+    PipelineStep(
+        name="Step X - New Module",
+        description="Description of the new module.",
+        runner=step_new_module,
+        enabled=True,
+        skip_check=should_skip_new_module,
+    ),
+]
+
+This modular structure allows new vessel branches, new anatomical anchors, and new post-processing steps to be added incrementally.
+
+⚠️ Notes
+This project is under active development.
+The current implementation is rule-based and anatomy-guided.
+It depends on the quality of upstream segmentation outputs.
+Poor contrast timing, motion artifact, unusual anatomy, or segmentation failure may affect vessel tracing.
+Manual inspection in 3D Slicer is recommended.
+Some scripts currently assume a Windows-style project path and may require path modification for other platforms.
+⚠️ Disclaimer
+
+This project is intended for research and educational purposes only.
+
+It is not a certified medical device and should not be used as the sole basis for clinical diagnosis, treatment planning, operative planning, or clinical decision-making.
+
+All outputs should be reviewed by qualified medical professionals before any research or clinical interpretation.
+
+📄 License
+
+MIT License
+
+🙌 Acknowledgements
+
+This project builds on or interacts with several open-source tools and medical imaging platforms:
+
+TotalSegmentator
+3D Slicer
+MONAI
+Nibabel
+pynrrd
+SciPy
+NumPy
+Nilearn
+
+Special thanks to the open-source medical imaging community for providing the tools that make anatomy-guided image processing workflows possible.
+
+💡 Future Work
+
+Planned or possible future improvements include:
+
+batch processing support
+cross-platform path handling
+better anatomical variant handling
+more robust vessel graph validation
+automatic QA visualization
+branch-level confidence scoring
+semi-automatic manual correction tools
+improved venous / arterial separation
+quantitative vascular measurements
+integration with radiology AI workflows
+Citation
+
+If you use this project in academic work, please cite this repository.
+
+A formal citation will be added once a manuscript or preprint is available.
