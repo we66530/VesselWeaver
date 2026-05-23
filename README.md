@@ -536,7 +536,7 @@ MIT License
 ## 🙌 Acknowledgements
 
 This project builds on or interacts with several open-source tools and medical imaging platforms:
-
+```text
 TotalSegmentator
 
 3D Slicer
@@ -546,10 +546,11 @@ pynrrd
 SciPy
 NumPy
 Nilearn
+```
 
 Special thanks to the open-source medical imaging community for providing the tools that make anatomy-guided image processing workflows possible.
 
-##💡 Future Work
+## 💡 Future Work
 
 Planned or possible future improvements include:
 ```text
