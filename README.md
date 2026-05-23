@@ -548,7 +548,11 @@ NumPy
 Nilearn
 ```
 
-Special thanks to the open-source medical imaging community for providing the tools that make anatomy-guided image processing workflows possible.
+The portal vein system segmentation component of this project primarily uses the pretrained model and implementation provided by:
+```text
+LERCO-FNO / Abdominal-Vessels-Segmentation
+https://github.com/LERCO-FNO/Abdominal-Vessels-Segmentation
+```
 
 ## 💡 Future Work
 
