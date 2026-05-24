@@ -43,6 +43,29 @@ This project is designed for:
 
 ---
 
+## 🖼️ Demo
+
+### Abdominal vessel branch reconstruction
+
+The following image shows an example output of the final abdominal vessel branch reconstruction in 3D Slicer.
+
+![Abdominal Vessel Branches](Demo/branches.png)
+
+🎥 YouTube demonstration:  
+https://youtu.be/9aVzKN6tO0s
+
+---
+
+### Abdominal vessel trunk reconstruction
+
+The following image shows an example output of the reconstructed abdominal vessel trunks in 3D Slicer.
+
+![Abdominal Vessel Trunks](Demo/trunks.png)
+
+🎥 YouTube demonstration:  
+https://youtu.be/vPpqlPF7ano
+
+---
 ## 🧠 Pipeline
 
 ```text
